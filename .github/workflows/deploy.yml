@@ -1,0 +1,46 @@
+name: Build & Deploy Docker Images
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & Push SCRAPER
+        uses: docker/build-push-action@v6
+        with:
+          context: ./scraper
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/webscraper-scraper:latest
+
+      - name: Build & Push RAG SERVICE
+        uses: docker/build-push-action@v6
+        with:
+          context: ./rag-service
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/webscraper-rag-service:latest
+
+      - name: Trigger Portainer Redeploy
+        run: |
+          curl -X POST "${{ secrets.PORTAINER_WEBHOOK }}"

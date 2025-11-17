@@ -13,7 +13,7 @@ services:
       - ./searxng:/etc/searxng
 
   scraper:
-    build: ./scraper
+    image: ghcr.io/s-kroonen/webscraper-scraper:latest
     container_name: scraper
     restart: unless-stopped
     ports:
@@ -31,7 +31,7 @@ services:
       - qdrant_data:/qdrant/storage
 
   rag-service:
-    build: ./rag-service
+    image: ghcr.io/s-kroonen/webscraper-rag-service:latest
     container_name: rag-service
     restart: unless-stopped
     ports:
