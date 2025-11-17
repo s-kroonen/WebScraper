@@ -1,4 +1,4 @@
-version: "3.9"
+version: "3.8"
 
 services:
   searxng:
@@ -9,6 +9,8 @@ services:
       - "8080:8080"
     environment:
       - SEARXNG_BASE_URL=http://localhost:8080/
+    volumes:
+      - ./searxng:/etc/searxng
 
   scraper:
     build:
