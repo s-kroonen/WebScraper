@@ -1,16 +1,31 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 import requests
 from qdrant_client import QdrantClient
 from qdrant_client.models import VectorParams, Distance
 from sentence_transformers import SentenceTransformer
+from pydantic import BaseModel
 
-app = FastAPI()
+app = FastAPI(
+    title="RAG Web Tool",
+    description="OpenAPI tool for web search, scrape, and memory retrieval",
+    version="1.0.0"
+)
 
+# Allow Open WebUI to connect
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# External services
 SEARX_URL = "http://searxng:8080/search"
 SCRAPER_URL = "http://scraper:8090/scrape"
 
+# Models
 model = SentenceTransformer("all-MiniLM-L6-v2")
-
 client = QdrantClient(host="qdrant", port=6333)
 
 # Create collection
@@ -19,17 +34,28 @@ client.recreate_collection(
     vectors_config=VectorParams(size=384, distance=Distance.COSINE),
 )
 
-@app.get("/search")
-def search(query: str):
-    # Step 1: run search in SearxNG
+# Pydantic input models for OpenAPI
+class QueryRequest(BaseModel):
+    query: str
+
+# --- Tool endpoints --- #
+
+@app.post("/tool/search")
+def tool_search(request: QueryRequest):
+    query = request.query
+
+    # 1. Search SearxNG
     params = {"q": query, "format": "json"}
-    results = requests.get(SEARX_URL, params=params, timeout=10).json()
+    try:
+        results = requests.get(SEARX_URL, params=params, timeout=10).json()
+    except:
+        results = {"results": []}
 
     urls = [r["url"] for r in results.get("results", [])[:5]]
 
     combined_text = ""
 
-    # Step 2: scrape each result
+    # 2. Scrape each result
     for url in urls:
         try:
             scraped = requests.get(SCRAPER_URL, params={"url": url}).json()
@@ -39,7 +65,6 @@ def search(query: str):
 
                 # Save to vector DB
                 embedding = model.encode(text).tolist()
-
                 client.upsert(
                     collection_name="web_memory",
                     points=[{
@@ -48,18 +73,22 @@ def search(query: str):
                         "payload": {"url": url, "text": text}
                     }]
                 )
-
         except:
-            pass
+            continue
 
+    # Return OpenAPI tool-compatible output
     return {
+        "name": "web_search",
+        "description": "Performs web search and scrapes results for RAG context",
         "query": query,
         "sources": urls,
-        "context": combined_text[:15000]  # limit for LLM context
+        "context": combined_text[:15000]
     }
 
-@app.get("/memory")
-def memory(query: str):
+
+@app.post("/tool/memory")
+def tool_memory(request: QueryRequest):
+    query = request.query
     embedding = model.encode(query).tolist()
 
     results = client.search(
@@ -69,6 +98,8 @@ def memory(query: str):
     )
 
     return {
+        "name": "memory_lookup",
+        "description": "Retrieves related documents from local memory",
         "query": query,
         "matches": [{
             "url": r.payload["url"],
