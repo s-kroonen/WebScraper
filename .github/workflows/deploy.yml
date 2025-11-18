@@ -29,7 +29,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./scraper
-          push: true
+          push: false
           tags: |
             ghcr.io/${{ github.repository_owner }}/webscraper-scraper:latest
 
@@ -37,7 +37,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./rag-service
-          push: true
+          push: false
           tags: |
             ghcr.io/${{ github.repository_owner }}/webscraper-rag-service:latest
 
