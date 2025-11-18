@@ -1,4 +1,3 @@
-version: "3.8"
 
 services:
   searxng:
@@ -10,6 +9,7 @@ services:
     environment:
       - SEARXNG_BASE_URL=http://localhost:${SEARXNG_PORT}/
     volumes:
+      # - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
       - ./searxng:/etc/searxng
 
   scraper:
